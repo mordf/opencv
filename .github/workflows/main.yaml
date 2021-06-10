@@ -1,0 +1,43 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependency packages
+      run: |
+      sudo apt-get update
+      sudo apt-get install build-essential
+      sudo apt-get install cmake git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
+      sudo apt-get install python-dev python-numpy libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev
+    - name: Fetch opencv_contrib
+      run: |
+        git clone --depth 1 https://github.com/opencv/opencv_contrib.git ../opencv_contrib
+    - name: Configure
+      run: |
+        mkdir build
+        cd build
+        cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr/local ..
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc --all)
+    
+    - name: Synopsys Detect Rescan
+        run: >
+          curl -s -L https://raw.github.com/blackducksoftware/detect_rescan/dev/detect_rescan.sh > detect_rescan.sh;
+          bash detect_rescan.sh --blackduck.url=${{ secrets.BLACKDUCK_URL }} --blackduck.api.token=${{ secrets.BLACKDUCK_API_TOKEN }} --detect.project.name=opencv --detect.project.version.name=1.0.0 --quiet --testxml
+ 
+    - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v2
+        with:
+          report_paths: '**/policies.xml'
+          github_token: ${{ secrets.GH_TOKEN }}
